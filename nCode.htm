@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>座標からNコード算出</title>
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+    <style>
+      #map {
+        height: 100%;
+      }
+      /* Optional: Makes the sample page fill the window. */
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+    <script src="nCode.js" ></script>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script>
+      var map;
+      var n = nCode();
+      var blockRect = null;
+      var unitRect = null;
+      var hMesh = null;
+      var mMesh = null;
+      var color = "#990000";
+
+      function initMap() {
+        map = new google.maps.Map(document.getElementById('map'), {
+          center: {lat: 35, lng: 135},
+          zoom: 6
+        });
+
+        // Create a div to hold the control.
+        var controlDiv = document.createElement('div');
+        controlDiv.style.margin = '10px';
+
+        // Set CSS for the control border
+        var controlUI = document.createElement('div');
+        controlUI.style.backgroundColor = '#fff';
+        controlUI.style.border = '2px solid #fff';
+        controlUI.style.cursor = 'pointer';
+        controlUI.style.marginBottom = '22px';
+        controlUI.style.textAlign = 'center';
+        controlUI.title = 'Click to recenter the map';
+        controlDiv.appendChild(controlUI);
+
+        // Set CSS for the control interior
+        var controlText = document.createElement('div');
+        controlText.style.color = 'rgb(25,25,25)';
+        controlText.style.fontFamily = 'Roboto,Arial,sans-serif';
+        controlText.style.fontSize = '16px';
+        controlText.style.lineHeight = '38px';
+        controlText.style.paddingLeft = '5px';
+        controlText.style.paddingRight = '5px';
+        controlText.innerHTML = 'Center Map';
+        controlText.classList.add('ncode');
+        controlUI.appendChild(controlText);
+        map.controls[google.maps.ControlPosition.TOP_RIGHT].push(controlDiv);
+
+        map.addListener('drag', onDrag);
+        map.addListener('zoom_changed', onDrag);
+
+        setTimeout(onDrag, 1000);
+      }
+
+      function onDrag(){
+        var latlng = map.getCenter();
+        var lat = latlng.lat();
+        var lng = latlng.lng();
+        
+
+        var nLatLng = n.latlng(lat, lng);
+        var nCode = n.latlngToNCode(nLatLng);
+       
+        //console.log(nCode.blockName);
+        if(!nCode.blockName){
+          var codeView = document.getElementsByClassName('ncode');
+          if(codeView.length > 0){
+            codeView[0].innerHTML = "範囲外";
+          }
+
+          if(blockRect){
+            blockRect.setMap(null);
+          }
+          if(unitRect){
+            unitRect.setMap(null);
+          }
+          if(hMesh){
+            hMesh.setMap(null);
+          }
+          if(mMesh){
+            mMesh.setMap(null);
+          }
+        }else{
+          // -------------------------------------------
+          // block
+          var blockBound = n.nCodeToBound(n.nCode(nCode.blockName));
+          var blockNE = blockBound.getNorthEast();
+          var blockSW = blockBound.getSouthWest();
+          var gBlockBound = new google.maps.LatLngBounds(new google.maps.LatLng(blockSW.lat,blockSW.lng), new google.maps.LatLng(blockNE.lat,blockNE.lng));
+
+          if(blockRect){
+            blockRect.setMap(null);
+          }
+
+          var blockRectOpt = {
+            bounds: gBlockBound,
+            fillOpacity:0.0,
+            strokeWeight:1,
+            strokeColor:color,
+            map: map
+          };
+          blockRect = new google.maps.Rectangle(blockRectOpt);
+
+          // -------------------------------------------
+          // Unit
+          var unitBound = n.nCodeToBound(n.nCode(nCode.blockName, nCode.unitName));
+          var unitNE = unitBound.getNorthEast();
+          var unitSW = unitBound.getSouthWest();
+          var gUnitBound = new google.maps.LatLngBounds(new google.maps.LatLng(unitSW.lat,unitSW.lng), new google.maps.LatLng(unitNE.lat,unitNE.lng));
+
+          if(unitRect){
+            unitRect.setMap(null);
+          }
+          var unitRectOpt = {
+            bounds: gUnitBound,
+            fillOpacity:0.0,
+            strokeWeight:1,
+            strokeColor:color,
+            map: map
+          };
+          unitRect = new google.maps.Rectangle(unitRectOpt);
+
+          // -------------------------------------------
+          // 1/100 Mesh
+          var hMeshBound = n.nCodeToBound(n.nCode(nCode.blockName, nCode.unitName, nCode.ewMeshName.substr(0,2), nCode.nsMeshName.substr(0,2)));
+          var hMeshNE = hMeshBound.getNorthEast();
+          var hMeshSW = hMeshBound.getSouthWest();
+          var gHmeshBound = new google.maps.LatLngBounds(new google.maps.LatLng(hMeshSW.lat,hMeshSW.lng), new google.maps.LatLng(hMeshNE.lat,hMeshNE.lng));
+
+          if(hMesh){
+            hMesh.setMap(null);
+          }
+          var hMeshRectOpt = {
+            bounds: gHmeshBound,
+            fillOpacity:0.0,
+            strokeWeight:1,
+            strokeColor:color,
+            map: map
+          };
+          hMesh = new google.maps.Rectangle(hMeshRectOpt);
+
+          // -------------------------------------------
+          // 1/10000 Mesh
+          var mMeshBound = n.nCodeToBound(n.nCode(nCode.blockName, nCode.unitName, nCode.ewMeshName, nCode.nsMeshName));
+          var mMeshNE = mMeshBound.getNorthEast();
+          var mMeshSW = mMeshBound.getSouthWest();
+          var gMMeshBound = new google.maps.LatLngBounds(new google.maps.LatLng(mMeshSW.lat,mMeshSW.lng), new google.maps.LatLng(mMeshNE.lat,mMeshNE.lng));
+
+          if(mMesh){
+            mMesh.setMap(null);
+          }
+          var mMeshRectOpt = {
+            bounds: gMMeshBound,
+            fillOpacity:0.0,
+            strokeWeight:1,
+            strokeColor:color,
+            map: map
+          };
+          mMesh = new google.maps.Rectangle(mMeshRectOpt);
+
+          var codeView = document.getElementsByClassName('ncode');
+          if(codeView.length > 0){
+            codeView[0].innerHTML = nCode.blockName + " " + nCode.unitName + " " + nCode.ewMeshName + "/" + nCode.nsMeshName;
+          }
+        }
+      }
+
+    </script>
+    
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCZ891OEvKF-0w_guOJOI3kp3spRP24YIk&callback=initMap" async defer></script>
+  </body>
+</html>
